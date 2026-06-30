@@ -8,7 +8,7 @@ from typing_extensions import deprecated
 
 import torch
 
-from . import random
+from . import memory, random
 from ._utils import _device_t, _get_device_index
 from .graphs import Graph
 from .memory import (
@@ -41,6 +41,7 @@ __all__ = [
     "max_memory_allocated",
     "max_memory_reserved",
     "memory_allocated",
+    "memory",
     "memory_reserved",
     "memory_stats",
     "reset_accumulated_memory_stats",

@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import pickle
 from typing import Any
 
 import torch
@@ -7,6 +8,7 @@ from ._utils import _device_t, _get_device_index
 
 
 __all__ = [
+    "dump_snapshot",
     "empty_cache",
     "empty_host_cache",
     "get_memory_info",
@@ -15,8 +17,12 @@ __all__ = [
     "memory_allocated",
     "memory_reserved",
     "memory_stats",
+    "record_memory_history",
     "reset_accumulated_memory_stats",
     "reset_peak_memory_stats",
+    "save_memory_usage",
+    "save_segment_usage",
+    "snapshot",
 ]
 
 
@@ -252,11 +258,73 @@ def get_memory_info(device_index: _device_t = None, /) -> tuple[int, int]:
     return torch._C._accelerator_getMemoryInfo(device_index)
 
 
-def _snapshot(device=None, augment_with_fx_traces: bool = False):
+def _current_accelerator() -> torch.device:
+    acc = torch.accelerator.current_accelerator()
+    if acc is None:
+        raise NotImplementedError(
+            "memory snapshot is not implemented because no accelerator is available"
+        )
+    return acc
+
+
+def _get_memory_module():
+    acc = _current_accelerator()
+    backend = acc.type
+    try:
+        mod = torch.get_device_module(acc)
+    except RuntimeError as e:
+        raise NotImplementedError(
+            f"memory snapshot is not implemented for backend '{backend}'"
+        ) from e
+    memory_mod = getattr(mod, "memory", None)
+    if memory_mod is None:
+        raise NotImplementedError(
+            f"memory snapshot is not implemented for backend '{backend}'"
+        )
+    return backend, memory_mod
+
+
+def _get_memory_backend_fn(public_name: str, private_name: str):
+    backend, memory_mod = _get_memory_module()
+    fn = getattr(memory_mod, public_name, None)
+    if fn is None:
+        fn = getattr(memory_mod, private_name, None)
+    if fn is None:
+        raise NotImplementedError(
+            f"memory snapshot is not implemented for backend '{backend}'"
+        )
+    return fn
+
+
+def _segments(snapshot) -> str:
+    from torch.cuda._memory_viz import segments
+
+    return segments(snapshot)
+
+
+def _memory(snapshot) -> str:
+    from torch.cuda._memory_viz import memory
+
+    return memory(snapshot)
+
+
+def record_memory_history(*args, **kwargs) -> None:
+    r"""Enable recording stack traces associated with accelerator memory allocations.
+
+    This dispatches to the current :ref:`accelerator<accelerators>` backend's
+    memory history implementation. Backends that do not implement memory history
+    raise :class:`NotImplementedError`.
+    """
+    return _get_memory_backend_fn(
+        "record_memory_history", "_record_memory_history"
+    )(*args, **kwargs)
+
+
+def snapshot(device=None, augment_with_fx_traces: bool = False):
     r"""Return a snapshot of the current :ref:`accelerator<accelerators>` memory allocator state.
 
-    Requires :func:`_record_memory_history` on the appropriate device module
-    (e.g., :func:`torch.cuda.memory._record_memory_history`) to have been called.
+    Requires :func:`record_memory_history` to have been called to include stack
+    traces for allocator events.
 
     Args:
         device: the device to snapshot. If not given, uses the current device.
@@ -266,11 +334,35 @@ def _snapshot(device=None, augment_with_fx_traces: bool = False):
     Returns:
         dict: a dictionary containing memory allocator state information.
     """
-    acc = torch.accelerator.current_accelerator()
-    if acc is not None and acc.type == "xpu":
-        return torch.xpu.memory._snapshot(
-            device, augment_with_fx_traces=augment_with_fx_traces
-        )
-    return torch.cuda.memory._snapshot(
+    return _get_memory_backend_fn("snapshot", "_snapshot")(
         device, augment_with_fx_traces=augment_with_fx_traces
     )
+
+
+_snapshot = snapshot
+
+
+def dump_snapshot(
+    filename: str = "dump_snapshot.pickle", augment_with_fx_traces: bool = False
+) -> None:
+    r"""Save a pickled accelerator memory snapshot to ``filename``."""
+    s = snapshot(augment_with_fx_traces=augment_with_fx_traces)
+
+    with open(filename, "wb") as f:
+        pickle.dump(s, f)
+
+
+def save_segment_usage(filename: str = "output.svg", snapshot=None) -> None:
+    r"""Save an SVG visualization of segment usage for an accelerator memory snapshot."""
+    if snapshot is None:
+        snapshot = globals()["snapshot"]()
+    with open(filename, "w") as f:
+        f.write(_segments(snapshot))
+
+
+def save_memory_usage(filename: str = "output.svg", snapshot=None) -> None:
+    r"""Save an SVG visualization of memory usage for an accelerator memory snapshot."""
+    if snapshot is None:
+        snapshot = globals()["snapshot"]()
+    with open(filename, "w") as f:
+        f.write(_memory(snapshot))
