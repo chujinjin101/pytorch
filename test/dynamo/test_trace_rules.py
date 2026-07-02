@@ -341,6 +341,10 @@ class TraceRuleTests(torch._dynamo.test_case.TestCase):
 
     def test_cuda_manual_seed_functions_graph_break(self):
         for name in (
+            "torch.accelerator.manual_seed",
+            "torch.accelerator.manual_seed_all",
+            "torch.accelerator.random.manual_seed",
+            "torch.accelerator.random.manual_seed_all",
             "torch.cuda.manual_seed",
             "torch.cuda.manual_seed_all",
             "torch.cuda.random.manual_seed",

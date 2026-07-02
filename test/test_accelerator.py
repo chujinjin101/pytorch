@@ -35,6 +35,51 @@ class TestAccelerator(TestCase):
         ):
             torch.accelerator.set_device_index("cpu")
 
+    def test_rng_state(self):
+        original_state = torch.accelerator.get_rng_state()
+        accelerator = torch.accelerator.current_accelerator()
+        try:
+            torch.accelerator.manual_seed(1234)
+            self.assertEqual(torch.accelerator.initial_seed(), 1234)
+
+            state = torch.accelerator.get_rng_state()
+            expected = torch.rand(4, device=accelerator)
+            torch.accelerator.set_rng_state(state)
+            actual = torch.rand(4, device=accelerator)
+            self.assertEqual(actual, expected)
+
+            self.assertEqual(
+                torch.accelerator.get_rng_state(accelerator),
+                torch.accelerator.get_rng_state(torch.accelerator.current_device_index()),
+            )
+            torch.accelerator.set_rng_state(state, accelerator)
+        finally:
+            torch.accelerator.set_rng_state(original_state)
+
+        with self.assertRaisesRegex(
+            ValueError, "doesn't match the current accelerator"
+        ):
+            torch.accelerator.get_rng_state("cpu")
+        with self.assertRaisesRegex(
+            ValueError, "doesn't match the current accelerator"
+        ):
+            torch.accelerator.set_rng_state(original_state, "cpu")
+
+    def test_rng_state_all(self):
+        original_states = torch.accelerator.get_rng_state_all()
+        try:
+            self.assertEqual(len(original_states), torch.accelerator.device_count())
+            torch.accelerator.manual_seed_all(1234)
+            seeded_states = torch.accelerator.get_rng_state_all()
+            torch.accelerator.manual_seed_all(5678)
+            torch.accelerator.set_rng_state_all(seeded_states)
+            self.assertEqual(torch.accelerator.get_rng_state_all(), seeded_states)
+
+            torch.accelerator.seed()
+            torch.accelerator.seed_all()
+        finally:
+            torch.accelerator.set_rng_state_all(original_states)
+
     @unittest.skipIf(not TEST_MULTIACCELERATOR, "only one accelerator detected")
     def test_generic_multi_device_behavior(self):
         orig_device = torch.accelerator.current_device_index()

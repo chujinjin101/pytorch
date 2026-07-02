@@ -23,6 +23,17 @@ from .memory import (
     reset_accumulated_memory_stats,
     reset_peak_memory_stats,
 )
+from .random import (
+    get_rng_state,
+    get_rng_state_all,
+    initial_seed,
+    manual_seed,
+    manual_seed_all,
+    seed,
+    seed_all,
+    set_rng_state,
+    set_rng_state_all,
+)
 
 
 __all__ = [
@@ -31,6 +42,9 @@ __all__ = [
     "current_device_idx",  # deprecated
     "current_device_index",
     "get_device_capability",
+    "get_rng_state",
+    "get_rng_state_all",
+    "initial_seed",
     "current_stream",
     "device_count",
     "device_index",
@@ -43,10 +57,16 @@ __all__ = [
     "memory_allocated",
     "memory_reserved",
     "memory_stats",
+    "manual_seed",
+    "manual_seed_all",
     "reset_accumulated_memory_stats",
     "reset_peak_memory_stats",
+    "seed",
+    "seed_all",
     "set_device_idx",  # deprecated
     "set_device_index",
+    "set_rng_state",
+    "set_rng_state_all",
     "set_stream",
     "synchronize",
 ]

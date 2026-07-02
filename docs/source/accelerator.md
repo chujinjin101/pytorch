@@ -93,9 +93,10 @@ per-backend modules, the following APIs are delegated to each backend:
 
 ```{eval-rst}
 .. automodule:: torch.accelerator.random
+   :no-members:
 ```
 ```{eval-rst}
-.. currentmodule:: torch.accelerator.random
+.. currentmodule:: torch.accelerator
 ```
 
 ## Random Number Generator
@@ -106,5 +107,11 @@ per-backend modules, the following APIs are delegated to each backend:
 
      get_rng_state
      get_rng_state_all
+     set_rng_state
+     set_rng_state_all
+     manual_seed
+     manual_seed_all
+     seed
+     seed_all
      initial_seed
 ```
