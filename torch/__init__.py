@@ -3298,6 +3298,12 @@ if not TYPE_CHECKING:
         del coll_meta_registrations
     from torch import _meta_registrations
 
+# Enable Accelerator Sanitizer
+if "TORCH_ACCELERATOR_SANITIZER" in os.environ:
+    import torch.accelerator._sanitizer as asan
+
+    asan.enable_accelerator_sanitizer()
+
 # Enable CUDA Sanitizer
 if "TORCH_CUDA_SANITIZER" in os.environ:
     import torch.cuda._sanitizer as csan
